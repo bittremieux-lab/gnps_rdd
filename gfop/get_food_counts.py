@@ -60,7 +60,7 @@ def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
     """
     # Select GNPS job groups.
     groups = {f'G{i}' for i in range(1, 7)}
-    groups_excluded = groups - set([*all_groups, *some_groups])
+    groups_excluded = list(groups - set([*all_groups, *some_groups]))
     df_selected = gnps_network[
         (gnps_network[all_groups] > 0).all(axis=1) &
         (gnps_network[some_groups] > 0).any(axis=1) &
