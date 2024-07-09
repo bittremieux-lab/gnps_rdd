@@ -106,7 +106,7 @@ def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
     return sample_types_selected.value_counts()
 
 
-def get_dataset_food_counts(gnps_network, metadata, filename_col,
+def get_dataset_food_counts(gnps_network,
                             sample_types, all_groups, some_groups,
                             level):
     """
@@ -115,9 +115,6 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
     Args:
         gnps_network (string): path to tsv file generated from classical molecular.
                                networking with study dataset(s) and reference dataset.
-        metadata (string): path to sample metadata (comma- or tab-separated) file.
-                           Must contain a column with mzXML file names that match those used in the molecular networking job.
-        filename_col (string): name of metadata column header containing file names.
         sample_types (string): one of 'simple', 'complex', or 'all'.
                                Simple foods are single ingredients while complex foods contain multiple ingredients.
                                'all' will return both simple and complex foods.
@@ -130,8 +127,6 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
         A data frame
     Examples:
         get_dataset_food_counts(gnps_network = 'METABOLOMICS-SNETS-V2-07f85565-view_all_clusters_withID_beta-main.tsv',
-                                metadata = 'sample_metadata.csv',
-                                filename_col = 'filenames',
                                 sample_types = 'simple',
                                 all_groups = ['G1'],
                                 some_groups = ['G4'],
@@ -140,10 +135,8 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
     food_counts, filenames = [], []
     gnps_network = pd.read_csv(gnps_network, sep='\t')
     sample_types = get_sample_types(sample_types)
-    delim = ',' if metadata.endswith('.csv') else '\t'
-    metadata = pd.read_csv(metadata, sep=delim)
-    metadata = metadata.dropna(subset=[filename_col])
-    for filename in metadata[filename_col]:
+    metadata = get_sample_metadata(gnps_network, all_groups)
+    for filename in metadata['filename']:
         file_food_counts = get_file_food_counts(gnps_network, sample_types, all_groups, some_groups, [filename], level)
         if len(file_food_counts) > 0:
             food_counts.append(file_food_counts)
