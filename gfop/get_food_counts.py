@@ -31,6 +31,24 @@ def get_sample_types(simple_complex='all'):
     return (gfop_metadata[['filename', *col_sample_types]]
             .set_index('filename'))
 
+def get_sample_metadata(gnps_network, groups):
+    '''
+    Args:
+        gnps_network(dataframe): Dataframe generated from classical molecular networking
+                                  with study dataset(s) and reference dataset.
+        groups(list): can contain 'G1', 'G2' to denote study spectrum files.
+        
+    Return:
+        Dataframe with all the filenames in the study spectrum files and the group they belong to.
+
+    '''
+    pattern = r'^(?:' + '|'.join(groups) + r')$'
+    df_selected = gnps_network[gnps_network['DefaultGroups'].str.match(pattern)]
+    df_exploded = df_selected.assign(UniqueFileSources=df_selected['UniqueFileSources'].str.split('|')).explode('UniqueFileSources')
+    filenames_df = df_exploded[['DefaultGroups', 'UniqueFileSources']].rename(columns={'DefaultGroups': 'group', 'UniqueFileSources': 'filename'})
+    filenames_df = filenames_df.drop_duplicates().reset_index(drop=True)
+    return filenames_df
+
 
 def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
                          filename, level):
