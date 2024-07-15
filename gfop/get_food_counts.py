@@ -36,23 +36,25 @@ def get_sample_metadata(gnps_network, all_groups):
     Args:
         gnps_network(dataframe): Dataframe generated from classical molecular networking
                                   with study dataset(s) and reference dataset.
-        all_groups(list): can contain 'G1', 'G2' to denote study spectrum files.
+        groups(list): can contain 'G1', 'G2' to denote study spectrum files.
         
     Return:
         Dataframe with all the filenames in the study spectrum files and the group they belong to.
 
     '''
 
-    groups = {f'G{i}' for i in range(1, 7)}
-    groups_excluded = list(groups - set([*all_groups]))
-    pattern = r'^(?:' + '|'.join(groups) + r')$'
-    df_selected = gnps_network[
-        (gnps_network[all_groups] > 0).all(axis=1) &
-        (gnps_network[groups_excluded] == 0).all(axis=1)].copy()
+    df_filtered = gnps_network[~gnps_network['DefaultGroups'].str.contains(',')]
     
-    df_exploded = df_selected.assign(UniqueFileSources=df_selected['UniqueFileSources'].str.split('|')).explode('UniqueFileSources')
-    filenames_df = df_exploded[['DefaultGroups', 'UniqueFileSources']].rename(columns={'DefaultGroups': 'group', 'UniqueFileSources': 'filename'})
+
+    df_selected = df_filtered[df_filtered['DefaultGroups'].isin(all_groups)]
+    
+ 
+    df_exploded_files = df_selected.assign(UniqueFileSources=df_selected['UniqueFileSources'].str.split('|')).explode('UniqueFileSources')
+    
+    # Create the final dataframe with the selected groups and filenames
+    filenames_df = df_exploded_files[['DefaultGroups', 'UniqueFileSources']].rename(columns={'DefaultGroups': 'group', 'UniqueFileSources': 'filename'})
     filenames_df = filenames_df.drop_duplicates().reset_index(drop=True)
+    
     return filenames_df
 
 
