@@ -152,3 +152,36 @@ def get_dataset_food_counts(gnps_network,
     food_counts = (pd.concat(food_counts, axis=1, sort=True).fillna(0).astype(int).T)
     food_counts.index = pd.Index(filenames, name='filename')
     return food_counts
+
+
+def get_dataset_food_counts_all(gnps_network, sample_types, all_groups, some_groups, levels=6):
+    """
+    Generate a table of food counts for a study dataset for all levels at once in long format.
+
+    Args:
+        gnps_network (string): Path to tsv file generated from classical molecular networking
+                               with study dataset(s) and reference dataset.
+        sample_types (string): One of 'simple', 'complex', or 'all'.
+                               Simple foods are single ingredients while complex foods contain multiple ingredients.
+                               'all' will return both simple and complex foods.
+        all_groups (list): List of study spectrum file groups.
+        some_groups (list): List of reference spectrum file groups.
+        levels (integer): Number of levels to calculate food counts for.
+    Return:
+        A long format dataframe with columns: filename, food_type, level, count, group.
+    """
+    gnps_network_df = pd.read_csv(gnps_network, sep='\t')
+    metadata = get_sample_metadata(gnps_network_df, all_groups)
+    
+    all_data = []
+    for level in range(levels + 1):
+        print(f"Processing level {level}")  # Debug statement
+        food_counts = get_dataset_food_counts(gnps_network, sample_types, all_groups, some_groups, level)
+        food_counts_long = food_counts.reset_index().melt(id_vars='filename', var_name='food_type', value_name='count')
+        food_counts_long['level'] = level
+        all_data.append(food_counts_long)
+        
+    result_df = pd.concat(all_data, ignore_index=True)
+    result_df['group'] = result_df['filename'].map(metadata.set_index('filename')['group'])
+    
+    return result_df
