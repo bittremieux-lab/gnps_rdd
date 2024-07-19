@@ -1,10 +1,11 @@
 import pkg_resources
 import numpy as np
 import pandas as pd
+from typing import List
 
-
-def load_food_metadata():
+def load_food_metadata() -> pd.DataFrame:
     """
+    Read Global FoodOmics ontology and metadata.
     Return: a dataframe containing Global FoodOmics ontology and metadata.
     """
     stream = pkg_resources.resource_stream(__name__, 'data/foodomics_multiproject_metadata.txt')
@@ -14,9 +15,9 @@ def load_food_metadata():
                                         if col.dtype == 'object' else col)
     return gfop_metadata
 
-
-def get_sample_types(simple_complex='all'):
+def get_sample_types(simple_complex: str = 'all') -> pd.DataFrame:
     """
+    Filter Global FoodOmics metadata by simple, complex or all type of foods.
     Return:
         Global FoodOmics ontology containing only simple, only complex, or all foods.
     Args:
@@ -31,9 +32,28 @@ def get_sample_types(simple_complex='all'):
     return (gfop_metadata[['filename', *col_sample_types]]
             .set_index('filename'))
 
+def get_sample_metadata(gnps_network: pd.DataFrame, all_groups: List[str]) -> pd.DataFrame:
+    """
+    Extract filenames and group of the study group(all_groups) from the GNPS network dataframe
 
-def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
-                         filename, level):
+    Return:
+        Dataframe with all the filenames in the study spectrum files and the group they belong to.
+    Args:
+        gnps_network(dataframe): Dataframe generated from classical molecular networking
+                                  with study dataset(s) and reference dataset.
+        all_groups(list): can contain 'G1', 'G2' to denote study spectrum files.
+    """
+    df_filtered = gnps_network[~gnps_network['DefaultGroups'].str.contains(',')]
+    df_selected = df_filtered[df_filtered['DefaultGroups'].isin(all_groups)]
+    df_exploded_files = df_selected.assign(UniqueFileSources=df_selected['UniqueFileSources'].str.split('|')).explode('UniqueFileSources')
+    # Create the final dataframe with the selected groups and filenames
+    filenames_df = df_exploded_files[['DefaultGroups', 'UniqueFileSources']].rename(columns={'DefaultGroups': 'group', 'UniqueFileSources': 'filename'})
+    filenames_df = filenames_df.drop_duplicates().reset_index(drop=True)
+    
+    return filenames_df
+
+def get_file_food_counts(gnps_network: pd.DataFrame, sample_types: pd.DataFrame, all_groups: List[str], some_groups: List[str],
+                         filename: str, level: int) -> pd.Series:
     """
     Generate food counts for an individual sample in a study dataset.
     A count indicates a spectral match between a reference food and the study sample.
@@ -60,7 +80,7 @@ def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
     """
     # Select GNPS job groups.
     groups = {f'G{i}' for i in range(1, 7)}
-    groups_excluded = groups - set([*all_groups, *some_groups])
+    groups_excluded = list(groups - set([*all_groups, *some_groups]))
     df_selected = gnps_network[
         (gnps_network[all_groups] > 0).all(axis=1) &
         (gnps_network[some_groups] > 0).any(axis=1) &
@@ -87,19 +107,17 @@ def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
     # Get sample counts at the specified level.
     return sample_types_selected.value_counts()
 
-
-def get_dataset_food_counts(gnps_network, metadata, filename_col,
-                            sample_types, all_groups, some_groups,
-                            level):
+def get_dataset_food_counts(gnps_network: str,
+                            sample_types: str, 
+                            all_groups: List[str], 
+                            some_groups: List[str],
+                            level: int) -> pd.DataFrame:
     """
     Generate a table of food counts for a study dataset.
 
     Args:
         gnps_network (string): path to tsv file generated from classical molecular.
                                networking with study dataset(s) and reference dataset.
-        metadata (string): path to sample metadata (comma- or tab-separated) file.
-                           Must contain a column with mzXML file names that match those used in the molecular networking job.
-        filename_col (string): name of metadata column header containing file names.
         sample_types (string): one of 'simple', 'complex', or 'all'.
                                Simple foods are single ingredients while complex foods contain multiple ingredients.
                                'all' will return both simple and complex foods.
@@ -112,8 +130,6 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
         A data frame
     Examples:
         get_dataset_food_counts(gnps_network = 'METABOLOMICS-SNETS-V2-07f85565-view_all_clusters_withID_beta-main.tsv',
-                                metadata = 'sample_metadata.csv',
-                                filename_col = 'filenames',
                                 sample_types = 'simple',
                                 all_groups = ['G1'],
                                 some_groups = ['G4'],
@@ -122,10 +138,8 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
     food_counts, filenames = [], []
     gnps_network = pd.read_csv(gnps_network, sep='\t')
     sample_types = get_sample_types(sample_types)
-    delim = ',' if metadata.endswith('.csv') else '\t'
-    metadata = pd.read_csv(metadata, sep=delim)
-    metadata = metadata.dropna(subset=[filename_col])
-    for filename in metadata[filename_col]:
+    metadata = get_sample_metadata(gnps_network, all_groups)
+    for filename in metadata['filename']:
         file_food_counts = get_file_food_counts(gnps_network, sample_types, all_groups, some_groups, [filename], level)
         if len(file_food_counts) > 0:
             food_counts.append(file_food_counts)
@@ -133,3 +147,38 @@ def get_dataset_food_counts(gnps_network, metadata, filename_col,
     food_counts = (pd.concat(food_counts, axis=1, sort=True).fillna(0).astype(int).T)
     food_counts.index = pd.Index(filenames, name='filename')
     return food_counts
+
+def get_dataset_food_counts_all(gnps_network: str, 
+                                sample_types: str, 
+                                all_groups: List[str], 
+                                some_groups: List[str], 
+                                levels: int = 6) -> pd.DataFrame:
+    """
+    Generate a table of food counts for a study dataset for all levels at once in long format.
+
+    Args:
+        gnps_network (string): Path to tsv file generated from classical molecular networking
+                               with study dataset(s) and reference dataset.
+        sample_types (string): One of 'simple', 'complex', or 'all'.
+                               Simple foods are single ingredients while complex foods contain multiple ingredients.
+                               'all' will return both simple and complex foods.
+        all_groups (list): List of study spectrum file groups.
+        some_groups (list): List of reference spectrum file groups.
+        levels (integer): Number of levels to calculate food counts for.
+    Return:
+        A long format dataframe with columns: filename, food_type, level, count, group.
+    """
+    gnps_network_df = pd.read_csv(gnps_network, sep='\t')
+    metadata = get_sample_metadata(gnps_network_df, all_groups)
+    
+    all_data = []
+    for level in range(levels + 1):
+        food_counts = get_dataset_food_counts(gnps_network, sample_types, all_groups, some_groups, level)
+        food_counts_long = food_counts.reset_index().melt(id_vars='filename', var_name='food_type', value_name='count')
+        food_counts_long['level'] = level
+        all_data.append(food_counts_long)
+        
+    result_df = pd.concat(all_data, ignore_index=True)
+    result_df['group'] = result_df['filename'].map(metadata.set_index('filename')['group'])
+    
+    return result_df
