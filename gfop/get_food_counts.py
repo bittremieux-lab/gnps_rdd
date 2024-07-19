@@ -1,10 +1,11 @@
 import pkg_resources
 import numpy as np
 import pandas as pd
+from typing import List
 
-
-def load_food_metadata():
+def load_food_metadata() -> pd.DataFrame:
     """
+    Read Global FoodOmics ontology and metadata.
     Return: a dataframe containing Global FoodOmics ontology and metadata.
     """
     stream = pkg_resources.resource_stream(__name__, 'data/foodomics_multiproject_metadata.txt')
@@ -14,9 +15,9 @@ def load_food_metadata():
                                         if col.dtype == 'object' else col)
     return gfop_metadata
 
-
-def get_sample_types(simple_complex='all'):
+def get_sample_types(simple_complex: str = 'all') -> pd.DataFrame:
     """
+    Filter Global FoodOmics metadata by simple, complex or all type of foods.
     Return:
         Global FoodOmics ontology containing only simple, only complex, or all foods.
     Args:
@@ -31,35 +32,28 @@ def get_sample_types(simple_complex='all'):
     return (gfop_metadata[['filename', *col_sample_types]]
             .set_index('filename'))
 
-def get_sample_metadata(gnps_network, all_groups):
-    '''
+def get_sample_metadata(gnps_network: pd.DataFrame, all_groups: List[str]) -> pd.DataFrame:
+    """
+    Extract filenames and group of the study group(all_groups) from the GNPS network dataframe
+
+    Return:
+        Dataframe with all the filenames in the study spectrum files and the group they belong to.
     Args:
         gnps_network(dataframe): Dataframe generated from classical molecular networking
                                   with study dataset(s) and reference dataset.
-        groups(list): can contain 'G1', 'G2' to denote study spectrum files.
-        
-    Return:
-        Dataframe with all the filenames in the study spectrum files and the group they belong to.
-
-    '''
-
+        all_groups(list): can contain 'G1', 'G2' to denote study spectrum files.
+    """
     df_filtered = gnps_network[~gnps_network['DefaultGroups'].str.contains(',')]
-    
-
     df_selected = df_filtered[df_filtered['DefaultGroups'].isin(all_groups)]
-    
- 
     df_exploded_files = df_selected.assign(UniqueFileSources=df_selected['UniqueFileSources'].str.split('|')).explode('UniqueFileSources')
-    
     # Create the final dataframe with the selected groups and filenames
     filenames_df = df_exploded_files[['DefaultGroups', 'UniqueFileSources']].rename(columns={'DefaultGroups': 'group', 'UniqueFileSources': 'filename'})
     filenames_df = filenames_df.drop_duplicates().reset_index(drop=True)
     
     return filenames_df
 
-
-def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
-                         filename, level):
+def get_file_food_counts(gnps_network: pd.DataFrame, sample_types: pd.DataFrame, all_groups: List[str], some_groups: List[str],
+                         filename: str, level: int) -> pd.Series:
     """
     Generate food counts for an individual sample in a study dataset.
     A count indicates a spectral match between a reference food and the study sample.
@@ -113,10 +107,11 @@ def get_file_food_counts(gnps_network, sample_types, all_groups, some_groups,
     # Get sample counts at the specified level.
     return sample_types_selected.value_counts()
 
-
-def get_dataset_food_counts(gnps_network,
-                            sample_types, all_groups, some_groups,
-                            level):
+def get_dataset_food_counts(gnps_network: str,
+                            sample_types: str, 
+                            all_groups: List[str], 
+                            some_groups: List[str],
+                            level: int) -> pd.DataFrame:
     """
     Generate a table of food counts for a study dataset.
 
@@ -153,8 +148,11 @@ def get_dataset_food_counts(gnps_network,
     food_counts.index = pd.Index(filenames, name='filename')
     return food_counts
 
-
-def get_dataset_food_counts_all(gnps_network, sample_types, all_groups, some_groups, levels=6):
+def get_dataset_food_counts_all(gnps_network: str, 
+                                sample_types: str, 
+                                all_groups: List[str], 
+                                some_groups: List[str], 
+                                levels: int = 6) -> pd.DataFrame:
     """
     Generate a table of food counts for a study dataset for all levels at once in long format.
 
@@ -175,7 +173,6 @@ def get_dataset_food_counts_all(gnps_network, sample_types, all_groups, some_gro
     
     all_data = []
     for level in range(levels + 1):
-        print(f"Processing level {level}")  # Debug statement
         food_counts = get_dataset_food_counts(gnps_network, sample_types, all_groups, some_groups, level)
         food_counts_long = food_counts.reset_index().melt(id_vars='filename', var_name='food_type', value_name='count')
         food_counts_long['level'] = level
