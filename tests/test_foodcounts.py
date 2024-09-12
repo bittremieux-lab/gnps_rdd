@@ -7,7 +7,7 @@ import pandas as pd
 project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'gfop'))
 sys.path.append(project_path)
 
-from foodcounts import FoodCounts  # Import after updating the path
+from foodcounts import FoodCounts  # type: ignore # Import after updating the path
 
 @pytest.fixture
 def create_foodcounts():
