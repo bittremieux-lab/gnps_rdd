@@ -34,7 +34,7 @@ def food_counts_to_wide(food_counts: pd.DataFrame, level: int = None) -> pd.Data
 import pandas as pd
 import os
 
-def update_group_with_metadata_column(food_counts: pd.DataFrame, metadata_file: str, merge_column: str) -> pd.DataFrame:
+def update_groups_from_metadata(food_counts: pd.DataFrame, metadata_file: str, merge_column: str) -> pd.DataFrame:
     """
     Update the groups in the food counts dataframe based on user-uploaded metadata,
     allowing the user to specify which column to use for merging.
