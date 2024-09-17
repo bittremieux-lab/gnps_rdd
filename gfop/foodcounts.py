@@ -77,7 +77,6 @@ class FoodCounts:
             ) as stream:
                 gfop_metadata = pd.read_csv(stream, sep="\t")
         except (ModuleNotFoundError, ImportError):
-            # Fallback for older Python versions
             stream = pkg_resources.resource_stream(
                 __name__, "data/foodomics_multiproject_metadata.txt"
             )
