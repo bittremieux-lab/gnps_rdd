@@ -7,7 +7,7 @@ import pandas as pd
 project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "gfop"))
 sys.path.append(project_path)
 
-from foodcounts import FoodCounts  # type: ignore # Import after updating the path
+from foodcounts import FoodCounts  # type: ignore
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ def test_file_not_found():
     """
     with pytest.raises(FileNotFoundError):
         FoodCounts(
-            gnps_network="invalid_path.tsv",  # This file does not exist
+            gnps_network="invalid_path.tsv",  
             sample_types="all",
             all_groups=["G1"],
             some_groups=["G4"],
