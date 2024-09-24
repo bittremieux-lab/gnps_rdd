@@ -29,20 +29,20 @@ class FoodCounts:
         """
         # Load GNPS network data
         self.gnps_network = pd.read_csv(gnps_network, sep="\t")
-        self.sample_types = self.load_sample_types(sample_types)
+        self.sample_types = self._load_sample_types(sample_types)
         self.all_groups = all_groups
         self.some_groups = some_groups
         self.levels = levels
-        self.food_metadata = self.load_food_metadata()
+        self.food_metadata = self._load_food_metadata()
 
         # Validate group names
-        self.validate_groups()
+        self._validate_groups()
 
         # Generate sample metadata and counts
-        self.sample_metadata = self.get_sample_metadata()
+        self.sample_metadata = self._get_sample_metadata()
         self.counts = self.create()
 
-    def validate_groups(self) -> None:
+    def _validate_groups(self) -> None:
         """
         Validates that the provided group names exist in the GNPS network data.
         Raises a ValueError if invalid group names are found.
@@ -63,7 +63,7 @@ class FoodCounts:
                 f"The following groups in some_groups are invalid: {invalid_some_groups}"
             )
 
-    def load_food_metadata(self) -> pd.DataFrame:
+    def _load_food_metadata(self) -> pd.DataFrame:
         """
         Reads Global FoodOmics ontology and metadata.
 
@@ -88,7 +88,7 @@ class FoodCounts:
         )
         return gfop_metadata
 
-    def load_sample_types(self, simple_complex: str = "all") -> pd.DataFrame:
+    def _load_sample_types(self, simple_complex: str = "all") -> pd.DataFrame:
         """
         Filters Global FoodOmics metadata by simple, complex, or all types of foods.
 
@@ -98,7 +98,7 @@ class FoodCounts:
         Returns:
             pd.DataFrame: Filtered Global FoodOmics ontology.
         """
-        gfop_metadata = self.load_food_metadata()
+        gfop_metadata = self._load_food_metadata()
         if simple_complex != "all":
             gfop_metadata = gfop_metadata[
                 gfop_metadata["simple_complex"] == simple_complex
@@ -108,7 +108,7 @@ class FoodCounts:
         ]
         return gfop_metadata[["filename", *col_sample_types]].set_index("filename")
 
-    def get_sample_metadata(self) -> pd.DataFrame:
+    def _get_sample_metadata(self) -> pd.DataFrame:
         """
         Extracts filenames and groups of the study group (all_groups) from the GNPS network dataframe.
 
@@ -130,7 +130,7 @@ class FoodCounts:
         )
         return filenames_df.drop_duplicates().reset_index(drop=True)
 
-    def get_level_food_counts(self, level: int) -> pd.DataFrame:
+    def _get_level_food_counts(self, level: int) -> pd.DataFrame:
         """
         Generates a table of food counts for a specific ontology level.
 
@@ -144,7 +144,7 @@ class FoodCounts:
         metadata = self.sample_metadata
 
         for filename in metadata["filename"]:
-            file_food_counts = self.get_file_food_counts(level, [filename])
+            file_food_counts = self._get_file_food_counts(level, [filename])
             if len(file_food_counts) > 0:
                 food_counts.append(file_food_counts)
                 filenames.append(filename)
@@ -154,7 +154,7 @@ class FoodCounts:
         food_counts.index = pd.Index(filenames, name="filename")
         return food_counts
 
-    def get_file_food_counts(self, level: int, filename: List[str]) -> pd.Series:
+    def _get_file_food_counts(self, level: int, filename: List[str]) -> pd.Series:
         """
         Generates food counts for an individual sample in a study dataset.
 
@@ -210,7 +210,7 @@ class FoodCounts:
         """
         all_data = []
         for level in range(self.levels + 1):
-            food_counts = self.get_level_food_counts(level)
+            food_counts = self._get_level_food_counts(level)
             if food_counts.empty:
                 continue  # Skip if no data for this level
             food_counts_long = food_counts.reset_index().melt(

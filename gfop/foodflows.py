@@ -25,16 +25,16 @@ class FoodFlows:
         """
         # Load GNPS network data
         self.gnps_network = pd.read_csv(gnps_network, sep="\t")
-        self.sample_types = self.load_sample_types(sample_types)
+        self.sample_types = self._load_sample_types(sample_types)
         self.groups_included = groups_included
         self.max_hierarchy_level = max_hierarchy_level
-        self.food_metadata = self.load_food_metadata()
+        self.food_metadata = self._load_food_metadata()
         # Validate group names
-        self.validate_groups()
+        self._validate_groups()
         # Generate flows and processes dataframes
         self.flows, self.processes = self.generate_foodflows()
 
-    def validate_groups(self) -> None:
+    def _validate_groups(self) -> None:
         """
         Validates that the provided group names exist in the GNPS network data.
         Raises a ValueError if invalid group names are found.
@@ -48,7 +48,7 @@ class FoodFlows:
                 f"The following groups in all_groups are invalid: {invalid_included_groups}"
             )
 
-    def load_food_metadata(self) -> pd.DataFrame:
+    def _load_food_metadata(self) -> pd.DataFrame:
         """
         Reads Global FoodOmics ontology and metadata.
 
@@ -74,7 +74,7 @@ class FoodFlows:
         )
         return gfop_metadata
 
-    def load_sample_types(self, simple_complex: str = "all") -> pd.DataFrame:
+    def _load_sample_types(self, simple_complex: str = "all") -> pd.DataFrame:
         """
         Filters Global FoodOmics metadata by simple, complex, or all types of foods.
 
@@ -84,7 +84,7 @@ class FoodFlows:
         Returns:
             pd.DataFrame: Filtered Global FoodOmics ontology.
         """
-        gfop_metadata = self.load_food_metadata()
+        gfop_metadata = self._load_food_metadata()
         if simple_complex != "all":
             gfop_metadata = gfop_metadata[
                 gfop_metadata["simple_complex"] == simple_complex
