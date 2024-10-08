@@ -1,4 +1,4 @@
-#visualization.py
+# visualization.py
 
 # Standard library imports
 import os
@@ -26,7 +26,7 @@ def plot_food_type_distribution(
     group_by: bool = False,
     library: str = "sns",
     figsize: Tuple[int, int] = (10, 6),
-    ) -> Union[matplotlib.figure.Figure, go.Figure]:
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot a bar chart showing the distribution of food types.
 
@@ -604,10 +604,7 @@ def plot_explained_variance(
         raise ValueError("Invalid library selected. Choose 'plotly' or 'sns'.")
 
 
-def visualize_sankey(
-    food_flows: FoodFlows, 
-    color_mapping_file: str
-) -> go.Figure:
+def visualize_sankey(food_flows: FoodFlows, color_mapping_file: str) -> go.Figure:
     """
     Visualize the food flows as a Sankey diagram.
 

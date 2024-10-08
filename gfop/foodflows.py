@@ -12,7 +12,6 @@ import pandas as pd
 from utils import _load_food_metadata, _load_sample_types, _validate_groups
 
 
-
 class FoodFlows:
     def __init__(
         self,
@@ -36,16 +35,20 @@ class FoodFlows:
         max_hierarchy_level : int, optional
             Maximum level for food flows calculation, by default 6.
         """
-       # Load GNPS network data
+        # Load GNPS network data
         self.gnps_network = pd.read_csv(gnps_network, sep="\t")
         self.food_metadata = _load_food_metadata()  # Call the utility function
-        self.sample_types = _load_sample_types(self.food_metadata, sample_types)  # Call the utility function
+        self.sample_types = _load_sample_types(
+            self.food_metadata, sample_types
+        )  # Call the utility function
         self.groups_included = groups_included
         self.max_hierarchy_level = max_hierarchy_level
-        
+
         # Validate group names
-        _validate_groups(self.gnps_network, self.groups_included)  # Call the utility function
-        
+        _validate_groups(
+            self.gnps_network, self.groups_included
+        )  # Call the utility function
+
         # Generate flows and processes dataframes
         self.flows, self.processes = self.generate_foodflows()
 
