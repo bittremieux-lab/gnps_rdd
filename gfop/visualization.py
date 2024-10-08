@@ -1,35 +1,61 @@
+#visualization.py
+
+# Standard library imports
+import os
+from typing import List, Optional, Union, Tuple
+from importlib import resources
+
+# Third-party imports
 import matplotlib.pyplot as plt
+import matplotlib.figure
 import seaborn as sns
 import pandas as pd
 import plotly.express as px
-from typing import List
-from foodcounts import FoodCounts
-from utils import food_counts_to_wide, calculate_proportions
-import pandas as pd
 import plotly.graph_objects as go
+
+# Internal imports
+from foodcounts import FoodCounts
+from foodflows import FoodFlows
+from utils import food_counts_to_wide, calculate_proportions
 
 
 def plot_food_type_distribution(
-    food_counts_instance,
+    food_counts_instance: FoodCounts,
     level: int = 3,
-    food_types: list = None,
+    food_types: Optional[List[str]] = None,
     group_by: bool = False,
     library: str = "sns",
-    figsize=(10, 6),
-):
+    figsize: Tuple[int, int] = (10, 6),
+    ) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot a bar chart showing the distribution of food types.
 
-    Args:
-        food_counts_instance (FoodCounts): An instance of the FoodCounts class.
-        level (int): The ontology level to filter by.
-        food_types (list, optional): Specific food types to include. Defaults to None.
-        group_by (bool): If True, group by 'group'. Defaults to False.
-        library (str): Visualization library to use ('sns' or 'plotly'). Defaults to 'sns'.
-        figsize (tuple): Figure size for the plot. Defaults to (10, 6).
+    Parameters
+    ----------
+    food_counts_instance : FoodCounts
+        An instance of the FoodCounts class.
+    level : int
+        The ontology level to filter by. Defaults to 3.
+    food_types : list, optional
+        Specific food types to include. If None, all types are included.
+        Defaults to None.
+    group_by : bool, optional
+        If True, group by 'group' in the plot. Defaults to False.
+    library : str, optional
+        The visualization library to use ('sns' or 'plotly'). Defaults to 'sns'.
+    figsize : tuple, optional
+        Figure size for the plot. Defaults to (10, 6).
 
-    Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The figure object for the plot.
+    Returns
+    -------
+    matplotlib.figure.Figure or plotly.graph_objects.Figure
+        The figure object for the plot.
+
+    Raises
+    ------
+    ValueError
+        If no data is available for the specified level and food types.
+        If an invalid library is selected.
     """
     # Internal data filtering
     filtered_counts = food_counts_instance.filter_counts(
@@ -97,28 +123,43 @@ def plot_food_type_distribution(
 
 
 def box_plot_food_proportions(
-    food_counts_instance,
+    food_counts_instance: FoodCounts,
     level: int = 3,
-    food_types: list = None,
+    food_types: Optional[List[str]] = None,
     group_by: bool = False,
-    group_colors: dict = None,
+    group_colors: Optional[dict] = None,
     library: str = "plotly",
-    figsize=(10, 6),
-):
+    figsize: Tuple[int, int] = (10, 6),
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot box plots showing the distribution of food proportions.
 
-    Args:
-        food_counts_instance (FoodCounts): An instance of the FoodCounts class.
-        level (int): The ontology level to filter by.
-        food_types (list, optional): Specific food types to include. Defaults to None.
-        group_by (bool): If True, group by 'group'. Defaults to False.
-        group_colors (dict, optional): A dictionary mapping group names to colors.
-        library (str): Visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
-        figsize (tuple): Figure size for matplotlib plots. Defaults to (10, 6).
+    Parameters
+    ----------
+    food_counts_instance : FoodCounts
+        An instance of the FoodCounts class.
+    level : int
+        The ontology level to filter by. Defaults to 3.
+    food_types : list, optional
+        Specific food types to include. Defaults to None.
+    group_by : bool, optional
+        If True, group by 'group' in the plot. Defaults to False.
+    group_colors : dict, optional
+        A dictionary mapping group names to colors.
+    library : str, optional
+        The visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
+    figsize : tuple, optional
+        Figure size for matplotlib plots. Defaults to (10, 6).
 
-    Returns:
-        plotly.graph_objects.Figure or matplotlib.figure.Figure: The figure object for the plot.
+    Returns
+    -------
+    plotly.graph_objects.Figure or matplotlib.figure.Figure
+        The figure object for the plot.
+
+    Raises
+    ------
+    ValueError
+        If an invalid library is selected.
     """
     # Handle no food types selection
     if not food_types:
@@ -323,24 +364,38 @@ def box_plot_food_proportions(
 
 
 def plot_food_proportion_heatmap(
-    food_counts_instance,
+    food_counts_instance: FoodCounts,
     level: int = 3,
-    food_types: list = None,
+    food_types: Optional[List[str]] = None,
     library: str = "sns",
-    figsize=(12, 8),
-):
+    figsize: Tuple[int, int] = (12, 8),
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot a heatmap of food proportions for given food types.
 
-    Args:
-        food_counts_instance (FoodCounts): An instance of the FoodCounts class.
-        level (int): The ontology level to filter by.
-        food_types (list, optional): Specific food types to include. Defaults to None (all food types).
-        library (str): Visualization library to use ('sns' or 'plotly'). Defaults to 'sns'.
-        figsize (tuple): Figure size for matplotlib plots. Defaults to (12, 8).
+    Parameters
+    ----------
+    food_counts_instance : FoodCounts
+        An instance of the FoodCounts class.
+    level : int
+        The ontology level to filter by. Defaults to 3.
+    food_types : list, optional
+        Specific food types to include. If None, all food types are included.
+        Defaults to None.
+    library : str, optional
+        The visualization library to use ('sns' or 'plotly'). Defaults to 'sns'.
+    figsize : tuple, optional
+        Figure size for matplotlib plots. Defaults to (12, 8).
 
-    Returns:
-        plotly.graph_objects.Figure or matplotlib.figure.Figure: The figure object for the heatmap.
+    Returns
+    -------
+    plotly.graph_objects.Figure or matplotlib.figure.Figure
+        The figure object for the heatmap.
+
+    Raises
+    ------
+    ValueError
+        If an invalid library is selected.
     """
     # Access counts from the FoodCounts instance
     counts = food_counts_instance.counts
@@ -400,25 +455,39 @@ def plot_food_proportion_heatmap(
 
 def plot_pca_results(
     pca_df: pd.DataFrame,
-    explained_variance: list,
+    explained_variance: List[float],
     group_by: bool = True,
     library: str = "plotly",
-    figsize=(10, 6),
-    group_colors: dict = None,
-):
+    figsize: Tuple[int, int] = (10, 6),
+    group_colors: Optional[dict] = None,
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot the PCA results using either Plotly or Seaborn/Matplotlib.
 
-    Args:
-        pca_df (pd.DataFrame): DataFrame containing PCA scores and metadata.
-        explained_variance (list): List of explained variance ratios for each component.
-        group_by (bool): Whether to color the points by 'group'. Defaults to True.
-        library (str): Visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
-        figsize (tuple): Figure size for Matplotlib plots. Defaults to (10, 6).
-        group_colors (dict, optional): A dictionary mapping group names to colors.
+    Parameters
+    ----------
+    pca_df : pd.DataFrame
+        DataFrame containing PCA scores and metadata.
+    explained_variance : list
+        List of explained variance ratios for each component.
+    group_by : bool, optional
+        Whether to color the points by 'group'. Defaults to True.
+    library : str, optional
+        The visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
+    figsize : tuple, optional
+        Figure size for Matplotlib plots. Defaults to (10, 6).
+    group_colors : dict, optional
+        A dictionary mapping group names to colors.
 
-    Returns:
-        plotly.graph_objects.Figure or matplotlib.figure.Figure: The figure object for the plot.
+    Returns
+    -------
+    plotly.graph_objects.Figure or matplotlib.figure.Figure
+        The figure object for the PCA plot.
+
+    Raises
+    ------
+    ValueError
+        If an invalid library is selected.
     """
     if library == "plotly":
         fig = go.Figure()
@@ -474,18 +543,31 @@ def plot_pca_results(
 
 
 def plot_explained_variance(
-    explained_variance: list, library: str = "plotly", figsize=(10, 6)
-):
+    explained_variance: List[float],
+    library: str = "plotly",
+    figsize: Tuple[int, int] = (10, 6),
+) -> Union[matplotlib.figure.Figure, go.Figure]:
     """
     Plot the explained variance of each principal component as a bar chart.
 
-    Args:
-        explained_variance (list): List of explained variance ratios for each component.
-        library (str): Visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
-        figsize (tuple): Figure size for Matplotlib plots. Defaults to (10, 6).
+    Parameters
+    ----------
+    explained_variance : list
+        List of explained variance ratios for each component.
+    library : str, optional
+        The visualization library to use ('plotly' or 'sns'). Defaults to 'plotly'.
+    figsize : tuple, optional
+        Figure size for Matplotlib plots. Defaults to (10, 6).
 
-    Returns:
-        plotly.graph_objects.Figure or matplotlib.figure.Figure: The figure object for the plot.
+    Returns
+    -------
+    plotly.graph_objects.Figure or matplotlib.figure.Figure
+        The figure object for the explained variance plot.
+
+    Raises
+    ------
+    ValueError
+        If an invalid library is selected.
     """
     pc_labels = [f"PC{i+1}" for i in range(len(explained_variance))]
     variance_percentages = [var * 100 for var in explained_variance]
@@ -522,16 +604,29 @@ def plot_explained_variance(
         raise ValueError("Invalid library selected. Choose 'plotly' or 'sns'.")
 
 
-def visualize_sankey(food_flows, color_mapping_file):
+def visualize_sankey(
+    food_flows: FoodFlows, 
+    color_mapping_file: str
+) -> go.Figure:
     """
     Visualize the food flows as a Sankey diagram.
 
-    Args:
-        food_flows: FoodFlows object containing the flows and processes dataframes.
-        color_mapping_file: CSV file mapping the sample types to their respective colors.
+    Parameters
+    ----------
+    food_flows : FoodFlows
+        A FoodFlows object containing the flows and processes dataframes.
+    color_mapping_file : str
+        CSV file mapping the sample types to their respective colors.
 
-    Returns:
-        fig: Plotly figure of the Sankey diagram.
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The figure object for the Sankey diagram.
+
+    Raises
+    ------
+    ValueError
+        If there are issues with the provided color mapping file.
     """
 
     # Load the color mapping

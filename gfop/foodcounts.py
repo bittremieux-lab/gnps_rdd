@@ -1,11 +1,15 @@
 # foodcounts.py
 
+# Standard library imports
+import os
+from typing import List, Optional
+
+# Third-party imports
 import numpy as np
 import pandas as pd
-from typing import List, Optional
-import os
-from importlib import resources
-import pkg_resources
+
+# Internal imports
+from utils import _load_food_metadata, _load_sample_types, _validate_groups
 
 
 class FoodCounts:
@@ -13,115 +17,82 @@ class FoodCounts:
         self,
         gnps_network: str,
         sample_types: str,
-        all_groups: List[str],
-        some_groups: List[str],
+        sample_groups: List[str],
+        reference_groups: List[str],
         levels: int = 6,
     ) -> None:
         """
-        Initializes the FoodCounts object and automatically creates the food counts for all levels and all types.
+        Initializes the FoodCounts object and automatically creates the food counts 
+        for all levels and all food types.
 
-        Args:
-            gnps_network (str): Path to the TSV file generated from classical molecular networking.
-            sample_types (str): One of 'simple', 'complex', or 'all'.
-            all_groups (List[str]): List of study spectrum file groups.
-            some_groups (List[str]): List of reference spectrum file groups.
-            levels (int): Number of levels to calculate food counts for.
-        """
-        # Load GNPS network data
+        Parameters
+        ----------
+        gnps_network : str
+            Path to the TSV file generated from classical molecular networking.
+        sample_types : str
+            One of 'simple', 'complex', or 'all', indicating which sample types to 
+            include in the food counts.
+        sample_groups : list of str
+            List of groups representing study spectrum files to include in the 
+            analysis.
+        reference_groups : list of str
+            List of groups representing reference spectrum files to include in the 
+            analysis.
+        levels : int, optional
+            Number of ontology levels to calculate food counts for, by default 6.
+
+        Attributes
+        ----------
+        gnps_network : pd.DataFrame
+            Dataframe containing the GNPS network data from the specified TSV file.
+        sample_types : pd.DataFrame
+            Dataframe containing the sample type information, filtered by the 
+            specified `sample_types` parameter.
+        sample_groups : list of str
+            List of study group names.
+        reference_groups : list of str
+            List of reference group names.
+        levels : int
+            The number of ontology levels.
+        food_metadata : pd.DataFrame
+            Metadata from the Global FoodOmics ontology, including sample names, 
+            descriptions, and other attributes.
+        sample_metadata : pd.DataFrame
+            Metadata for the samples, including filenames and group information.
+        counts : pd.DataFrame
+            A DataFrame of the food counts across different levels, grouped by 
+            filename and food type.
+        """        
+       # Load GNPS network data
         self.gnps_network = pd.read_csv(gnps_network, sep="\t")
-        self.sample_types = self._load_sample_types(sample_types)
-        self.all_groups = all_groups
-        self.some_groups = some_groups
+        self.food_metadata = _load_food_metadata()  # Call the utility function
+        self.sample_types = _load_sample_types(self.food_metadata, sample_types)  # Call the utility function
+        self.sample_groups = sample_groups
+        self.reference_groups = reference_groups
         self.levels = levels
-        self.food_metadata = self._load_food_metadata()
 
         # Validate group names
-        self._validate_groups()
+        _validate_groups(self.gnps_network, self.sample_groups)  # Call the utility function
 
         # Generate sample metadata and counts
         self.sample_metadata = self._get_sample_metadata()
-        self.counts = self.create()
-
-    def _validate_groups(self) -> None:
-        """
-        Validates that the provided group names exist in the GNPS network data.
-        Raises a ValueError if invalid group names are found.
-        """
-        valid_groups = set(self.gnps_network["DefaultGroups"].unique())
-
-        # Check all_groups
-        invalid_all_groups = set(self.all_groups) - valid_groups
-        if invalid_all_groups:
-            raise ValueError(
-                f"The following groups in all_groups are invalid: {invalid_all_groups}"
-            )
-
-        # Check some_groups
-        invalid_some_groups = set(self.some_groups) - valid_groups
-        if invalid_some_groups:
-            raise ValueError(
-                f"The following groups in some_groups are invalid: {invalid_some_groups}"
-            )
-
-    def _load_food_metadata(self) -> pd.DataFrame:
-        """
-        Reads Global FoodOmics ontology and metadata.
-
-        Returns:
-            pd.DataFrame: A dataframe containing Global FoodOmics ontology and metadata.
-        """
-        # Use importlib.resources if possible; fall back to pkg_resources
-        try:
-            with resources.open_text(
-                "data", "foodomics_multiproject_metadata.txt"
-            ) as stream:
-                gfop_metadata = pd.read_csv(stream, sep="\t")
-        except (ModuleNotFoundError, ImportError):
-            stream = pkg_resources.resource_stream(
-                __name__, "data/foodomics_multiproject_metadata.txt"
-            )
-            gfop_metadata = pd.read_csv(stream, sep="\t")
-
-        # Remove trailing whitespace
-        gfop_metadata = gfop_metadata.apply(
-            lambda col: col.str.strip() if col.dtype == "object" else col
-        )
-        return gfop_metadata
-
-    def _load_sample_types(self, simple_complex: str = "all") -> pd.DataFrame:
-        """
-        Filters Global FoodOmics metadata by simple, complex, or all types of foods.
-
-        Args:
-            simple_complex (str): One of 'simple', 'complex', or 'all'.
-
-        Returns:
-            pd.DataFrame: Filtered Global FoodOmics ontology.
-        """
-        gfop_metadata = self._load_food_metadata()
-        if simple_complex != "all":
-            gfop_metadata = gfop_metadata[
-                gfop_metadata["simple_complex"] == simple_complex
-            ]
-        col_sample_types = ["sample_name"] + [
-            f"sample_type_group{i}" for i in range(1, 7)
-        ]
-        return gfop_metadata[["filename", *col_sample_types]].set_index("filename")
+        self.file_level_counts = self._get_filename_level_food_counts()
+        self.counts = self.create_food_counts_all_levels()
 
     def _get_sample_metadata(self) -> pd.DataFrame:
         """
-        Extracts filenames and groups of the study group (all_groups) from the GNPS network dataframe.
+        Extracts filenames and groups from the study groups (sample_groups) in the 
+        GNPS network dataframe.
 
-        Args:
-            all_groups (List[str]): List of study groups.
-
-        Returns:
-            pd.DataFrame: Dataframe with filenames and group associations.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing filenames and their corresponding groups.
         """
         df_filtered = self.gnps_network[
             ~self.gnps_network["DefaultGroups"].str.contains(",")
         ]
-        df_selected = df_filtered[df_filtered["DefaultGroups"].isin(self.all_groups)]
+        df_selected = df_filtered[df_filtered["DefaultGroups"].isin(self.sample_groups)]
         df_exploded_files = df_selected.assign(
             UniqueFileSources=df_selected["UniqueFileSources"].str.split("|")
         ).explode("UniqueFileSources")
@@ -130,118 +101,139 @@ class FoodCounts:
         )
         return filenames_df.drop_duplicates().reset_index(drop=True)
 
-    def _get_level_food_counts(self, level: int) -> pd.DataFrame:
+    def _get_filename_level_food_counts(self) -> pd.DataFrame:
         """
-        Generates a table of food counts for a specific ontology level.
-
-        Args:
-            level (int): The ontology level to use for filtering food types.
-
-        Returns:
-            pd.DataFrame: A dataframe containing food counts for a specific level.
+        Generates a table of food counts at the filename level. It filters the GNPS network
+         based on the provided sample and 
+        reference groups.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing food counts at the filename level, structured with 
+            columns for 'filename', 'food_type', 'count', and 'level'.
         """
-        food_counts, filenames = [], []
-        metadata = self.sample_metadata
+        groups = {f'G{i}' for i in range(1, 7)}
+        groups_excluded = list(groups - set([*self.sample_groups, *self.reference_groups]))
 
-        for filename in metadata["filename"]:
-            file_food_counts = self._get_file_food_counts(level, [filename])
-            if len(file_food_counts) > 0:
-                food_counts.append(file_food_counts)
-                filenames.append(filename)
-        if not food_counts:
-            return pd.DataFrame()  # Return an empty dataframe if no data to concatenate
-        food_counts = pd.concat(food_counts, axis=1, sort=True).fillna(0).astype(int).T
-        food_counts.index = pd.Index(filenames, name="filename")
-        return food_counts
-
-    def _get_file_food_counts(self, level: int, filename: List[str]) -> pd.Series:
-        """
-        Generates food counts for an individual sample in a study dataset.
-
-        Args:
-            level (int): The ontology level to use for filtering food types.
-            filename (List[str]): Filename of the sample.
-
-        Returns:
-            pd.Series: A vector of food counts for the sample.
-        """
-        groups = {f"G{i}" for i in range(1, 7)}
-        groups_excluded = list(groups - set([*self.all_groups, *self.some_groups]))
+        # Filter GNPS network based on group criteria
         df_selected = self.gnps_network[
-            (self.gnps_network[self.all_groups] > 0).all(axis=1)
-            & (self.gnps_network[self.some_groups] > 0).any(axis=1)
-            & (self.gnps_network[groups_excluded] == 0).all(axis=1)
+            (self.gnps_network[self.sample_groups] > 0).all(axis=1) &
+            (self.gnps_network[self.reference_groups] > 0).any(axis=1) &
+            (self.gnps_network[groups_excluded] == 0).all(axis=1)
         ].copy()
-        df_selected = df_selected[
-            df_selected["UniqueFileSources"].apply(
-                lambda cluster_fn: any(fn in cluster_fn for fn in filename)
-            )
-        ]
-        filenames = df_selected["UniqueFileSources"].str.split("|").explode()
 
-        # Check if the requested level exists in the sample types dataframe
-        column_name = f"sample_type_group{level}" if level > 0 else "sample_name"
-        if column_name not in self.sample_types.columns:
-            return pd.Series(
-                dtype=int
-            )  # Return an empty Series if the column doesn't exist
+        # Explode the 'UniqueFileSources' to create individual rows for each filename
+        df_exploded = df_selected.assign(filename=df_selected['UniqueFileSources'].str.split('|')).explode('filename')
 
-        sample_types = self.sample_types[column_name]
-        sample_types_selected = sample_types.reindex(filenames).dropna()
+        # Create a new dataframe with the necessary columns
+        df_new = df_exploded[['filename', 'cluster index']].copy()
 
-        if level > 0:
-            water_count = (sample_types_selected == "water").sum()
-        else:
-            water_count = 0
+        # Filter for samples and foods using metadata and create separate dataframes
+        sample_filenames = set(self.sample_metadata['filename'])
+        df_new['sample'] = df_new['filename'].isin(sample_filenames)
 
-        sample_counts = sample_types_selected.value_counts()
-        sample_counts_valid = sample_counts.index[sample_counts > water_count]
-        sample_types_selected = sample_types_selected[
-            sample_types_selected.isin(sample_counts_valid)
-        ]
-        return sample_types_selected.value_counts()
+        # Separate samples and foods based on the sample flag
+        samples_df = df_new[df_new['sample'] == True][['filename', 'cluster index']]
+        foods_df = df_new[df_new['sample'] == False][['filename', 'cluster index']].rename(columns={'filename': 'food_filename'})
 
-    def create(self) -> pd.DataFrame:
-        """
-        Generates a table of food counts for a study dataset for all levels at once in long format.
+        # Reindex food dataframe to map food types with their corresponding sample names
+        foods_df['sample_name'] = foods_df['food_filename'].map(self.sample_types['sample_name'])
 
-        Returns:
-            pd.DataFrame: A long format dataframe with columns: filename, food_type, level, count, group.
-        """
-        all_data = []
-        for level in range(self.levels + 1):
-            food_counts = self._get_level_food_counts(level)
-            if food_counts.empty:
-                continue  # Skip if no data for this level
-            food_counts_long = food_counts.reset_index().melt(
+        # Filter out rows where 'sample_name' is NaN (in case some foods don't have corresponding sample names)
+        foods_df = foods_df.dropna(subset=['sample_name'])
+
+        # Merge samples_df and the updated foods_df on 'cluster index'
+        merged_df = pd.merge(samples_df, foods_df[['sample_name', 'cluster index']], on='cluster index', how='inner')
+
+        food_counts_file_level = merged_df.groupby(['filename', 'sample_name']).size().unstack(fill_value=0)
+
+        # Return the counts
+        food_counts_file_level_long = food_counts_file_level.reset_index().melt(
                 id_vars="filename", var_name="food_type", value_name="count"
             )
-            food_counts_long["level"] = level
-            all_data.append(food_counts_long)
-        # If no data was found, return an empty DataFrame
-        if not all_data:
-            return pd.DataFrame(
-                columns=["filename", "food_type", "count", "level", "group"]
-            )
+        food_counts_file_level_long['level'] = 0
 
-        result_df = pd.concat(all_data, ignore_index=True)
-        result_df["group"] = result_df["filename"].map(
-            self.sample_metadata.set_index("filename")["group"]
-        )
-        return result_df
+        return food_counts_file_level_long
+
+   
+
+    def create_food_counts_all_levels(self) -> pd.DataFrame:
+        """
+        Generates food counts across all ontology levels and compiles them into a 
+        single DataFrame. This function creates level-specific counts by grouping the
+        file-level counts and applies a filter for samples appearing less frequent than
+        water.Returns the data in long format.
+
+        Returns
+        -------
+        pd.DataFrame
+            A concatenated DataFrame containing food counts across all levels, 
+            including 'filename', 'food_type', 'count', 'level', and 'group' columns.
+        """
+        food_counts_file_level = self.file_level_counts
+        food_counts_all_levels = [food_counts_file_level]  # Initialize a list for storing data at all levels
+        food_counts_file_level_sample_types = food_counts_file_level.merge(self.sample_types, left_on="food_type", right_on="sample_name").drop_duplicates()
+
+        sample_metadata_map = self.sample_metadata.set_index("filename")["group"].to_dict()  # Create the mapping once
+
+        for level in range(1, self.levels + 1):
+            # Group and pivot to wide format
+            food_counts_level = food_counts_file_level_sample_types.groupby(['filename', f'sample_type_group{level}'])['count'].sum().reset_index()
+            wide_format_counts = food_counts_level.pivot_table(
+                index='filename', 
+                columns=f'sample_type_group{level}', 
+                values='count', 
+                fill_value=0
+            ).reset_index()
+
+            # Compare with water and filter
+            if 'water' in wide_format_counts.columns:
+                water_counts = wide_format_counts['water']
+                # Apply the condition across all columns except 'filename' and 'water'
+                columns_to_modify = wide_format_counts.columns.difference(['filename', 'water'])
+                wide_format_counts.loc[:, columns_to_modify] = wide_format_counts.loc[:, columns_to_modify].where(wide_format_counts.loc[:, columns_to_modify].gt(water_counts, axis=0), 0)
+    
+                
+                wide_format_counts = wide_format_counts.drop(columns=['water'])
+
+            # Drop columns where all values are 0
+            wide_format_counts = wide_format_counts.loc[:, (wide_format_counts != 0).any(axis=0)]
+
+            # Melt back to long format
+            food_counts_level = wide_format_counts.melt(id_vars='filename', var_name='food_type', value_name='count')
+            food_counts_level['level'] = level
+
+            food_counts_all_levels.append(food_counts_level)  # Append to the list instead of concatenating each time
+
+        food_counts_all_levels = pd.concat(food_counts_all_levels, ignore_index=True)
+
+        # Map group information from the sample_metadata to the final DataFrame
+        food_counts_all_levels['group'] = food_counts_all_levels['filename'].map(sample_metadata_map)
+
+        # Cast 'count' as an integer
+        food_counts_all_levels['count'] = food_counts_all_levels['count'].astype(int)
+
+        return food_counts_all_levels
 
     def filter_counts(
         self, food_types: Optional[List[str]] = None, level: int = 3
     ) -> pd.DataFrame:
         """
-        Filters the food counts by food types and ontology level.
+        Filters the food counts based on food types and ontology level.
 
-        Args:
-            food_types (List[str], optional): List of food types to filter by. Defaults to None.
-            level (int): The ontology level to filter by. Defaults to 3.
+        Parameters
+        ----------
+        food_types : list of str, optional
+            List of food types to filter by. If None, all food types at the specified 
+            level are included. Defaults to None.
+        level : int, optional
+            The ontology level to filter the food counts by. Defaults to 3.
 
-        Returns:
-            pd.DataFrame: Filtered food counts dataframe.
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing the filtered food counts with columns: filename, 
+            food type, level, count, and group.
         """
         if self.counts is None:
             raise ValueError(
@@ -256,14 +248,24 @@ class FoodCounts:
         ]
         return filtered_df
 
-    def update_groups(self, metadata_file: str, merge_column: str):
+    def update_groups(self, metadata_file: str, merge_column: str) -> None:
         """
-        Updates the 'group' column in the counts and sample_metadata DataFrames
-        based on user-uploaded metadata, without regenerating the counts.
+        Updates the 'group' column in the food counts and sample_metadata 
+        DataFrames based on user-provided metadata.
 
-        Args:
-            metadata_file (str): Path to the metadata file (CSV or TSV).
-            merge_column (str): The column in the metadata file to use for updating the group information.
+        Parameters
+        ----------
+        metadata_file : str
+            Path to the metadata file (CSV or TSV) containing updated group 
+            information.
+        merge_column : str
+            The column in the metadata file to use for updating the group information.
+
+        Raises
+        ------
+        ValueError
+            If the metadata file is not a valid CSV or TSV file or if the necessary 
+            columns are missing.
         """
         # Detect file extension to determine the separator
         file_extension = os.path.splitext(metadata_file)[1].lower()
